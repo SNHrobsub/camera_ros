@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(camera_ros)
+project(camera_ros_robsub)
 
 set(CMAKE_CXX_STANDARD 20)
 
