@@ -305,8 +305,7 @@ CameraNode::CameraNode(const rclcpp::NodeOptions &options)
   }
 
   // Custom QoS
-  rclcpp::QoS cam_qos(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_default));
-  cam_qos.keep_last(1);
+  rclcpp::QoS cam_qos(1);
   cam_qos.best_effort();
   cam_qos.durability_volatile();
 
@@ -314,7 +313,7 @@ CameraNode::CameraNode(const rclcpp::NodeOptions &options)
   pub_image = this->create_publisher<sensor_msgs::msg::Image>("~/image_raw", cam_qos);
   pub_image_compressed =
     this->create_publisher<sensor_msgs::msg::CompressedImage>("~/image_raw/compressed", cam_qos);
-  pub_ci = this->create_publisher<sensor_msgs::msg::CameraInfo>("~/camera_info", 1);
+  pub_ci = this->create_publisher<sensor_msgs::msg::CameraInfo>("~/camera_info", cam_qos);
 
   // start camera manager and check for cameras
   camera_manager.start();
