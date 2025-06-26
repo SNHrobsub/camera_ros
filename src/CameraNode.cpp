@@ -657,7 +657,7 @@ CameraNode::process(libcamera::Request *const request)
         memcpy(msg_img->data.data(), buffer_info[buffer].data, buffer_info[buffer].size);
 
         // compress to jpeg
-        if (pub_image_compressed->get_subscription_count()) {
+        // if (pub_image_compressed->get_subscription_count()) {
           try {
             compressImageMsg(*msg_img, *msg_img_compressed,
                              {cv::IMWRITE_JPEG_QUALITY, jpeg_quality});
@@ -665,7 +665,7 @@ CameraNode::process(libcamera::Request *const request)
           catch (const cv_bridge::Exception &e) {
             RCLCPP_ERROR_STREAM(get_logger(), e.what());
           }
-        }
+        // }
       }
       else if (format_type(cfg.pixelFormat) == FormatType::COMPRESSED) {
         // compressed image
@@ -676,7 +676,7 @@ CameraNode::process(libcamera::Request *const request)
         memcpy(msg_img_compressed->data.data(), buffer_info[buffer].data, bytesused);
 
         // decompress into raw rgb8 image
-        if (pub_image->get_subscription_count())
+        // if (pub_image->get_subscription_count())
           cv_bridge::toCvCopy(*msg_img_compressed, "rgb8")->toImageMsg(*msg_img);
       }
       else {
