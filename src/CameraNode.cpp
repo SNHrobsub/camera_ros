@@ -100,7 +100,7 @@ private:
   std::atomic<unsigned int> last_sequence = 0;
   std::atomic<uint64_t> last_timestamp = 0;
 
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub_image;
+  // rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr pub_image;
   rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr pub_image_compressed;
   rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr pub_ci;
 
@@ -305,12 +305,12 @@ CameraNode::CameraNode(const rclcpp::NodeOptions &options)
   }
 
   // Custom QoS
-  rclcpp::QoS cam_qos(1);
+  rclcpp::QoS cam_qos(3);
   cam_qos.best_effort();
   cam_qos.durability_volatile();
 
   // publisher for raw and compressed image
-  pub_image = this->create_publisher<sensor_msgs::msg::Image>("~/image_raw", cam_qos);
+// pub_image = this->create_publisher<sensor_msgs::msg::Image>("~/image_raw", cam_qos);
   pub_image_compressed =
     this->create_publisher<sensor_msgs::msg::CompressedImage>("~/image_raw/compressed", cam_qos);
   pub_ci = this->create_publisher<sensor_msgs::msg::CameraInfo>("~/camera_info", cam_qos);
@@ -666,8 +666,7 @@ CameraNode::process(libcamera::Request *const request)
             RCLCPP_ERROR_STREAM(get_logger(), e.what());
           }
         // }
-      }
-      else if (format_type(cfg.pixelFormat) == FormatType::COMPRESSED) {
+      } else if (format_type(cfg.pixelFormat) == FormatType::COMPRESSED) {
         // compressed image
         assert(bytesused < buffer_info[buffer].size);
         msg_img_compressed->header = hdr;
@@ -677,9 +676,8 @@ CameraNode::process(libcamera::Request *const request)
 
         // decompress into raw rgb8 image
         // if (pub_image->get_subscription_count())
-          cv_bridge::toCvCopy(*msg_img_compressed, "rgb8")->toImageMsg(*msg_img);
-      }
-      else {
+        //   cv_bridge::toCvCopy(*msg_img_compressed, "rgb8")->toImageMsg(*msg_img);
+      } else {
         throw std::runtime_error("unsupported pixel format: " +
                                  stream->configuration().pixelFormat.toString());
       }
@@ -690,8 +688,7 @@ CameraNode::process(libcamera::Request *const request)
       sensor_msgs::msg::CameraInfo ci = cim.getCameraInfo();
       ci.header = hdr;
       pub_ci->publish(ci);
-    }
-    else if (request->status() == libcamera::Request::RequestCancelled) {
+    } else if (request->status() == libcamera::Request::RequestCancelled) {
       RCLCPP_ERROR_STREAM(get_logger(), "request '" << request->toString() << "' cancelled");
     }
 
