@@ -684,7 +684,7 @@ CameraNode::process(libcamera::Request *const request)
                                  stream->configuration().pixelFormat.toString());
       }
 
-      pub_image->publish(std::move(msg_img));
+      // pub_image->publish(std::move(msg_img));
       pub_image_compressed->publish(std::move(msg_img_compressed));
 
       sensor_msgs::msg::CameraInfo ci = cim.getCameraInfo();
