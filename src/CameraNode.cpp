@@ -603,10 +603,16 @@ CameraNode::requestComplete(libcamera::Request *const request)
 void
 CameraNode::process(libcamera::Request *const request)
 {
+  auto last_loop_timestamp = this->now().nanoseconds();
   while (true) {
     // block until request is available
     std::unique_lock lk(request_mutexes.at(request));
     request_condvars.at(request).wait(lk);
+
+    // Block until minimum delay has passed
+    while (this->now().nanoseconds() - last_loop_timestamp < 100000000)
+        usleep(1000);
+    last_loop_timestamp = this->now().nanoseconds();
 
     if (!running)
       return;
