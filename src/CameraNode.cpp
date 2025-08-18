@@ -304,16 +304,20 @@ CameraNode::CameraNode(const rclcpp::NodeOptions &options)
     jpeg_quality = declare_parameter<uint8_t>("jpeg_quality", 95, jpeg_quality_description);
   }
 
+/* ROBSUB CODE START */
   // Custom QoS
-  rclcpp::QoS cam_qos(3);
-  cam_qos.best_effort();
-  cam_qos.durability_volatile();
+  rclcpp::QoS cam_qos = rclcpp::QoS(rclcpp::KeepLast(10))
+    .reliability(rclcpp::ReliabilityPolicy::BestEffort)
+    .durability(rclcpp::DurabilityPolicy::Volatile)
+    .liveliness(rclcpp::LivelinessPolicy::Automatic)
+    .deadline(rclcpp::Duration(0, 1e8)); // 100ms
 
   // publisher for raw and compressed image
 // pub_image = this->create_publisher<sensor_msgs::msg::Image>("~/image_raw", cam_qos);
   pub_image_compressed =
     this->create_publisher<sensor_msgs::msg::CompressedImage>("~/image_raw/compressed", cam_qos);
   pub_ci = this->create_publisher<sensor_msgs::msg::CameraInfo>("~/camera_info", cam_qos);
+/* ROBSUB CODE END */
 
   // start camera manager and check for cameras
   camera_manager.start();
@@ -603,6 +607,7 @@ CameraNode::requestComplete(libcamera::Request *const request)
 void
 CameraNode::process(libcamera::Request *const request)
 {
+/* ROBSUB CODE START */
   auto last_loop_timestamp = this->now().nanoseconds();
   while (true) {
     // block until request is available
@@ -613,6 +618,7 @@ CameraNode::process(libcamera::Request *const request)
     while (this->now().nanoseconds() - last_loop_timestamp < 100000000)
         usleep(1000);
     last_loop_timestamp = this->now().nanoseconds();
+/* ROBSUB CODE END */
 
     if (!running)
       return;
@@ -650,6 +656,7 @@ CameraNode::process(libcamera::Request *const request)
       auto msg_img = std::make_unique<sensor_msgs::msg::Image>();
       auto msg_img_compressed = std::make_unique<sensor_msgs::msg::CompressedImage>();
 
+/* ROBSUB CODE START */
       if (format_type(cfg.pixelFormat) == FormatType::RAW) {
         // raw uncompressed image
         assert(buffer_info[buffer].size == bytesused);
@@ -679,17 +686,13 @@ CameraNode::process(libcamera::Request *const request)
         msg_img_compressed->format = get_ros_encoding(cfg.pixelFormat);
         msg_img_compressed->data.resize(bytesused);
         memcpy(msg_img_compressed->data.data(), buffer_info[buffer].data, bytesused);
-
-        // decompress into raw rgb8 image
-        // if (pub_image->get_subscription_count())
-        //   cv_bridge::toCvCopy(*msg_img_compressed, "rgb8")->toImageMsg(*msg_img);
       } else {
         throw std::runtime_error("unsupported pixel format: " +
                                  stream->configuration().pixelFormat.toString());
       }
 
-      // pub_image->publish(std::move(msg_img));
       pub_image_compressed->publish(std::move(msg_img_compressed));
+/* ROBSUB CODE END */
 
       sensor_msgs::msg::CameraInfo ci = cim.getCameraInfo();
       ci.header = hdr;
