@@ -306,12 +306,12 @@ CameraNode::CameraNode(const rclcpp::NodeOptions &options)
 
 /* ROBSUB CODE START */
   // Custom QoS
-  rclcpp::QoS cam_qos = rclcpp::QoS(rclcpp::KeepLast(10))
+  rclcpp::QoS cam_qos = rclcpp::QoS(rclcpp::KeepLast(2))
     .reliability(rclcpp::ReliabilityPolicy::BestEffort)
     .durability(rclcpp::DurabilityPolicy::Volatile)
     .liveliness(rclcpp::LivelinessPolicy::Automatic)
-    .deadline(rclcpp::Duration(0, 1e8)); // 100ms
-
+    // .deadline(rclcpp::Duration(0, 1e8)) // 100ms // deadline doesn't work without time sync
+;
   // publisher for raw and compressed image
 // pub_image = this->create_publisher<sensor_msgs::msg::Image>("~/image_raw", cam_qos);
   pub_image_compressed =
@@ -608,16 +608,16 @@ void
 CameraNode::process(libcamera::Request *const request)
 {
 /* ROBSUB CODE START */
-  auto last_loop_timestamp = this->now().nanoseconds();
+  // auto last_loop_timestamp = this->now().nanoseconds();
   while (true) {
     // block until request is available
     std::unique_lock lk(request_mutexes.at(request));
     request_condvars.at(request).wait(lk);
 
-    // Block until minimum delay has passed
-    while (this->now().nanoseconds() - last_loop_timestamp < 100000000)
-        usleep(1000);
-    last_loop_timestamp = this->now().nanoseconds();
+    // // Block until minimum delay has passed
+    // while (this->now().nanoseconds() - last_loop_timestamp < 1e8)
+    //     usleep(1000);
+    // last_loop_timestamp = this->now().nanoseconds();
 /* ROBSUB CODE END */
 
     if (!running)
