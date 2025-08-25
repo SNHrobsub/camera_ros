@@ -604,18 +604,26 @@ CameraNode::requestComplete(libcamera::Request *const request)
   request_condvars.at(request).notify_one();
 }
 
+/* ROBSUB CODE START */
+// #define MANUAL_FPS_LIMITATION
+/* ROBSUB CODE END */
+
 void
 CameraNode::process(libcamera::Request *const request)
 {
 /* ROBSUB CODE START */
+#ifdef MANUAL_FPS_LIMITATION
   auto last_loop_timestamp = this->now().nanoseconds();
+#endif
 /* ROBSUB CODE END */
   while (true) {
 /* ROBSUB CODE START */
+#ifdef MANUAL_FPS_LIMITATION
     // Block until minimum delay has passed
     while (this->now().nanoseconds() - last_loop_timestamp < 1e8)
         usleep(1000);
     last_loop_timestamp = this->now().nanoseconds();
+#endif
 /* ROBSUB CODE END */
     // block until request is available
     std::unique_lock lk(request_mutexes.at(request));
