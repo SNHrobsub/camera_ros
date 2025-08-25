@@ -608,17 +608,18 @@ void
 CameraNode::process(libcamera::Request *const request)
 {
 /* ROBSUB CODE START */
-  // auto last_loop_timestamp = this->now().nanoseconds();
+  auto last_loop_timestamp = this->now().nanoseconds();
+/* ROBSUB CODE END */
   while (true) {
+/* ROBSUB CODE START */
+    // Block until minimum delay has passed
+    while (this->now().nanoseconds() - last_loop_timestamp < 1e8)
+        usleep(1000);
+    last_loop_timestamp = this->now().nanoseconds();
+/* ROBSUB CODE END */
     // block until request is available
     std::unique_lock lk(request_mutexes.at(request));
     request_condvars.at(request).wait(lk);
-
-    // // Block until minimum delay has passed
-    // while (this->now().nanoseconds() - last_loop_timestamp < 1e8)
-    //     usleep(1000);
-    // last_loop_timestamp = this->now().nanoseconds();
-/* ROBSUB CODE END */
 
     if (!running)
       return;
