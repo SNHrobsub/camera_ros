@@ -613,7 +613,7 @@ CameraNode::process(libcamera::Request *const request)
   while (true) {
 /* ROBSUB CODE START */
     // Block until minimum delay has passed
-    while (this->now().nanoseconds() - last_loop_timestamp < 1e8)
+    while (this->now().nanoseconds() - last_loop_timestamp < 2e8) // 2e8 => 5 FPS
         usleep(1000);
     last_loop_timestamp = this->now().nanoseconds();
 /* ROBSUB CODE END */
