@@ -605,7 +605,7 @@ CameraNode::requestComplete(libcamera::Request *const request)
 }
 
 /* ROBSUB CODE START */
-// #define MANUAL_FPS_LIMITATION
+#define MANUAL_FPS_LIMITATION
 /* ROBSUB CODE END */
 
 void
