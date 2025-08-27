@@ -620,7 +620,7 @@ CameraNode::process(libcamera::Request *const request)
 /* ROBSUB CODE START */
 #ifdef MANUAL_FPS_LIMITATION
     // Block until minimum delay has passed
-    while (this->now().nanoseconds() - last_loop_timestamp < 2e8) // 2e8 means 5 fps
+    while (this->now().nanoseconds() - last_loop_timestamp < 1e9) // 2e8 means 5 fps
         usleep(1000);
     last_loop_timestamp = this->now().nanoseconds();
 #endif
