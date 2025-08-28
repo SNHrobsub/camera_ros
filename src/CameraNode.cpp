@@ -62,6 +62,11 @@
 #include <utility>
 #include <vector>
 
+/* ROBSUB CODE START */
+#include <atomic>
+#include <chrono>
+/* ROBSUB CODE END */
+
 namespace rclcpp
 {
 class NodeOptions;
@@ -605,26 +610,18 @@ CameraNode::requestComplete(libcamera::Request *const request)
 }
 
 /* ROBSUB CODE START */
-#define MANUAL_FPS_LIMITATION
+#define MANUAL_FPS_LIMITATION // Comment this to disable FPS limitation
+
+#ifdef MANUAL_FPS_LIMITATION
+std::atomic<int64_t> last_exec_time_ns{0};
+const std::chrono::milliseconds min_interval(150); // ms
+#endif
 /* ROBSUB CODE END */
 
 void
 CameraNode::process(libcamera::Request *const request)
 {
-/* ROBSUB CODE START */
-#ifdef MANUAL_FPS_LIMITATION
-  auto last_loop_timestamp = this->now().nanoseconds();
-#endif
-/* ROBSUB CODE END */
   while (true) {
-/* ROBSUB CODE START */
-#ifdef MANUAL_FPS_LIMITATION
-    // Block until minimum delay has passed
-    while (this->now().nanoseconds() - last_loop_timestamp < 1e9) // 2e8 means 5 fps
-        usleep(1000);
-    last_loop_timestamp = this->now().nanoseconds();
-#endif
-/* ROBSUB CODE END */
     // block until request is available
     std::unique_lock lk(request_mutexes.at(request));
     request_condvars.at(request).wait(lk);
@@ -699,8 +696,19 @@ CameraNode::process(libcamera::Request *const request)
         throw std::runtime_error("unsupported pixel format: " +
                                  stream->configuration().pixelFormat.toString());
       }
+#ifdef MANUAL_FPS_LIMITATION
+    auto now = std::chrono::steady_clock::now();
+    int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
 
+    int64_t last_ns = last_exec_time_ns.load();
+    if (now_ns - last_ns >= min_interval.count() * 1e6) {
+        if (last_exec_time_ns.compare_exchange_strong(last_ns, now_ns)) {
+            pub_image_compressed->publish(std::move(msg_img_compressed));
+        }
+    }
+#else
       pub_image_compressed->publish(std::move(msg_img_compressed));
+#endif
 /* ROBSUB CODE END */
 
       sensor_msgs::msg::CameraInfo ci = cim.getCameraInfo();
