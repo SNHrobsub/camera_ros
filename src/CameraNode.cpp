@@ -65,6 +65,19 @@
 /* ROBSUB CODE START */
 #include <atomic>
 #include <chrono>
+
+#define QUALITY_OVERWRITE 20 // Lower means more compressed
+#define MIN_DELAY_MS 150 // Higher means less FPS
+/* ROBSUB CODE END */
+
+/* ROBSUB CODE START */
+#define MANUAL_FPS_LIMITATION // Comment this to disable FPS limitation
+#define MANUAL_COMPRESSION // Comment this to disable manual compression
+
+#ifdef MANUAL_FPS_LIMITATION
+std::atomic<int64_t> last_exec_time_ns{0};
+const std::chrono::milliseconds min_interval(MIN_DELAY_MS); // ms
+#endif
 /* ROBSUB CODE END */
 
 namespace rclcpp
@@ -198,6 +211,15 @@ compressImageMsg(const sensor_msgs::msg::Image &source,
                  sensor_msgs::msg::CompressedImage &destination,
                  const std::vector<int> &params = std::vector<int>())
 {
+/* ROBSUB CODE START */
+std::vector<int> params_copy = params;
+for (size_t i = 0; i + 1 < params_copy.size(); i += 2) {
+    if (params_copy[i] == cv::IMWRITE_JPEG_QUALITY) {
+        params_copy[i + 1] = QUALITY_OVERWRITE;
+        break;
+    }
+}
+/* ROBSUB CODE END */
   namespace enc = sensor_msgs::image_encodings;
 
   std::shared_ptr<CameraNode> tracked_object;
@@ -223,8 +245,34 @@ compressImageMsg(const sensor_msgs::msg::Image &source,
   }
 
   destination.format = "jpg";
-  cv::imencode(".jpg", image, destination.data, params);
+  cv::imencode(".jpg", image, destination.data, params_copy);
 }
+
+
+
+/* ROBSUB CODE START */
+sensor_msgs::msg::CompressedImage recompress_jpeg(const sensor_msgs::msg::CompressedImage* input_msg) {
+    // Decode JPEG from input_msg->data
+    cv::Mat image = cv::imdecode(input_msg->data, cv::IMREAD_COLOR);
+    if (image.empty()) {
+        throw std::runtime_error("Failed to decode JPEG image");
+    }
+
+    // Re-encode with lower quality
+    std::vector<uint8_t> recompressed_data;
+    std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, QUALITY_OVERWRITE};
+    cv::imencode(".jpg", image, recompressed_data, params);
+
+    // Create new CompressedImage message
+    sensor_msgs::msg::CompressedImage output_msg;
+    output_msg.header = input_msg->header;  // Preserve timestamp/frame info
+    output_msg.format = "jpeg";
+    output_msg.data = recompressed_data;
+
+    return output_msg;
+}
+/* ROBSUB CODE END */
+
 
 
 CameraNode::CameraNode(const rclcpp::NodeOptions &options)
@@ -609,15 +657,6 @@ CameraNode::requestComplete(libcamera::Request *const request)
   request_condvars.at(request).notify_one();
 }
 
-/* ROBSUB CODE START */
-#define MANUAL_FPS_LIMITATION // Comment this to disable FPS limitation
-
-#ifdef MANUAL_FPS_LIMITATION
-std::atomic<int64_t> last_exec_time_ns{0};
-const std::chrono::milliseconds min_interval(300); // ms
-#endif
-/* ROBSUB CODE END */
-
 void
 CameraNode::process(libcamera::Request *const request)
 {
@@ -659,33 +698,10 @@ CameraNode::process(libcamera::Request *const request)
       hdr.frame_id = frame_id;
       const libcamera::StreamConfiguration &cfg = stream->configuration();
 
-      auto msg_img = std::make_unique<sensor_msgs::msg::Image>();
       auto msg_img_compressed = std::make_unique<sensor_msgs::msg::CompressedImage>();
 
 /* ROBSUB CODE START */
-      if (format_type(cfg.pixelFormat) == FormatType::RAW) {
-        // raw uncompressed image
-        assert(buffer_info[buffer].size == bytesused);
-        msg_img->header = hdr;
-        msg_img->width = cfg.size.width;
-        msg_img->height = cfg.size.height;
-        msg_img->step = cfg.stride;
-        msg_img->encoding = get_ros_encoding(cfg.pixelFormat);
-        msg_img->is_bigendian = (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__);
-        msg_img->data.resize(buffer_info[buffer].size);
-        memcpy(msg_img->data.data(), buffer_info[buffer].data, buffer_info[buffer].size);
-
-        // compress to jpeg
-        // if (pub_image_compressed->get_subscription_count()) {
-          try {
-            compressImageMsg(*msg_img, *msg_img_compressed,
-                             {cv::IMWRITE_JPEG_QUALITY, jpeg_quality});
-          }
-          catch (const cv_bridge::Exception &e) {
-            RCLCPP_ERROR_STREAM(get_logger(), e.what());
-          }
-        // }
-      } else if (format_type(cfg.pixelFormat) == FormatType::COMPRESSED) {
+      if (format_type(cfg.pixelFormat) == FormatType::COMPRESSED) {
         // compressed image
         assert(bytesused < buffer_info[buffer].size);
         msg_img_compressed->header = hdr;
@@ -696,6 +712,14 @@ CameraNode::process(libcamera::Request *const request)
         throw std::runtime_error("unsupported pixel format: " +
                                  stream->configuration().pixelFormat.toString());
       }
+// Recompress
+#ifdef MANUAL_COMPRESSION
+    auto msg_to_publish = recompress_jpeg(msg_img_compressed.get());
+#else
+    auto msg_to_publish = msg_img_compressed;
+#endif
+
+// Publish
 #ifdef MANUAL_FPS_LIMITATION
     auto now = std::chrono::steady_clock::now();
     int64_t now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
@@ -703,11 +727,11 @@ CameraNode::process(libcamera::Request *const request)
     int64_t last_ns = last_exec_time_ns.load();
     if (now_ns - last_ns >= min_interval.count() * 1e6) {
         if (last_exec_time_ns.compare_exchange_strong(last_ns, now_ns)) {
-            pub_image_compressed->publish(std::move(msg_img_compressed));
+            pub_image_compressed->publish(std::move(msg_to_publish));
         }
     }
 #else
-      pub_image_compressed->publish(std::move(msg_img_compressed));
+      pub_image_compressed->publish(std::move(msg_to_publish));
 #endif
 /* ROBSUB CODE END */
 
