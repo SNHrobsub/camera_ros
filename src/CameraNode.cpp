@@ -66,7 +66,7 @@
 #include <atomic>
 #include <chrono>
 
-#define QUALITY_OVERWRITE 30 // Lower means more compressed
+#define QUALITY_OVERWRITE 20 // Lower means more compressed
 #define MIN_DELAY_MS 200 // Higher means less FPS
 /* ROBSUB CODE END */
 
