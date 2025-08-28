@@ -614,7 +614,7 @@ CameraNode::requestComplete(libcamera::Request *const request)
 
 #ifdef MANUAL_FPS_LIMITATION
 std::atomic<int64_t> last_exec_time_ns{0};
-const std::chrono::milliseconds min_interval(150); // ms
+const std::chrono::milliseconds min_interval(300); // ms
 #endif
 /* ROBSUB CODE END */
 
