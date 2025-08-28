@@ -67,7 +67,7 @@
 #include <chrono>
 
 #define QUALITY_OVERWRITE 20 // Lower means more compressed
-#define MIN_DELAY_MS 200 // Higher means less FPS
+#define MIN_DELAY_MS 100 // Higher means less FPS
 /* ROBSUB CODE END */
 
 /* ROBSUB CODE START */
